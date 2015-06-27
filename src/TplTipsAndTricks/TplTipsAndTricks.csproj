@@ -43,7 +43,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="01 - ProcessTasksOneByOne\Sample.cs" />
-    <Compile Include="01 - ProcessTasksOneByOne\TaskEx.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
