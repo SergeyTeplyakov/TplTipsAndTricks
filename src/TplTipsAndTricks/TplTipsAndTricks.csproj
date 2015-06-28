@@ -42,8 +42,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="01 - ProcessTasksOneByOne\Sample.cs" />
-    <Compile Include="01 - ProcessTasksOneByOne\TaskEx.cs" />
+    <Compile Include="ProcessTasksByCompletion\Sample.cs" />
+    <Compile Include="ProcessTasksByCompletion\TaskCompletionSourceEx.cs" />
+    <Compile Include="ProcessTasksByCompletion\TaskEx.cs" />
+    <Compile Include="ForEachAsync\Sample.cs" />
+    <Compile Include="ForEachAsync\TaskEx.cs" />
+    <Compile Include="Common\Weather.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
