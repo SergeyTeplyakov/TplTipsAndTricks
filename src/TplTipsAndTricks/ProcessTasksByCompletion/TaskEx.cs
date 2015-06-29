@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace TplTipsAndTricks.ProcessTasksByCompletion
@@ -60,7 +61,7 @@ namespace TplTipsAndTricks.ProcessTasksByCompletion
         /// This method helps to analyze the results not based on the order of the tasks in
         /// the original sequence but in the order of completion.
         /// </remarks>
-        public static IEnumerable<Task<T>> OrderByCompletion<T>(this IEnumerable<Task<T>> taskSequence)
+        public static IEnumerable<Task<T>> OrderByCompletionNaive<T>(this IEnumerable<Task<T>> taskSequence)
         {
             // Need to return task immediately, but it should be in complete state when the first task would be completed!
             Contract.Requires(taskSequence != null);
@@ -84,6 +85,36 @@ namespace TplTipsAndTricks.ProcessTasksByCompletion
 
                 yield return tcs.Task;
             }
+        }
+        
+        /// <summary>
+        /// OrderByCompletionNaive has significant drawback - O(N^2) complexity and O(N^2) number of continuations.
+        /// Current implemnetation should solve this issue.
+        /// </summary>
+        public static IEnumerable<Task<T>> OrderByCompletion<T>(this IEnumerable<Task<T>> taskSequence)
+        {
+            // Need to return task immediately, but it should be in complete state when the first task would be completed!
+            Contract.Requires(taskSequence != null);
+
+            var tasks = taskSequence.ToList();
+
+            var taskCompletions = new TaskCompletionSource<T>[tasks.Count];
+
+            int completedTask = -1;
+
+            Action<Task<T>> continuation = tsk =>
+            {
+                var finishedTask = Interlocked.Increment(ref completedTask);
+                taskCompletions[finishedTask].FromTask(tsk);
+            };
+
+            for (int i = 0; i < tasks.Count; i++)
+            {
+                taskCompletions[i] = new TaskCompletionSource<T>();
+                tasks[i].ContinueWith(continuation);
+            }
+
+            return taskCompletions.Select(tcs => tcs.Task);
         }
     }
 }

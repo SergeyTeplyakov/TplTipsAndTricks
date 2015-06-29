@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
@@ -22,9 +25,10 @@ namespace TplTipsAndTricks.ProcessTasksByCompletion
         public async Task ManualProcessByCompletion()
         {
             var cities = new List<string> { "Moscow", "Seattle", "New York" };
-            var tasks = (from city in cities
-                            let result = new { City = city, WeatherTask = GetWeatherForAsync(city) }
-                            select TaskEx.FromTask(result, r => r.WeatherTask)).ToList();
+            var tasks = cities.Select(async city =>
+            {
+                return new {City = city, Weather = await GetWeatherForAsync(city)};
+            }).ToList();
 
             while (tasks.Count != 0)
             {
@@ -34,12 +38,12 @@ namespace TplTipsAndTricks.ProcessTasksByCompletion
 
                 var result = completedTask.Result;
 
-                ProcessWeather(result.City, result.WeatherTask.Result);
+                ProcessWeather(result.City, result.Weather);
             }
         }
 
         [Test]
-        public async Task ProcessByCompletion()
+        public async Task ProcessByCompletionWithQueryComprehension()
         {
             var cities = new List<string> { "Moscow", "Seattle", "New York" };
             
@@ -55,28 +59,63 @@ namespace TplTipsAndTricks.ProcessTasksByCompletion
                 ProcessWeather(taskResult.City, taskResult.WeatherTask.Result);
             }
         }
-
+        
         [Test]
-        public async Task ProcessOneByOneNaive()
+        public async Task ProcessByCompletion()
         {
             var cities = new List<string> { "Moscow", "Seattle", "New York" };
 
-            var tasks =
-                from city in cities
-                select new { City = city, WeatherTask = GetWeatherForAsync(city) };
-
-            foreach (var entry in tasks)
+            var tasks = cities.Select(async city =>
             {
-                var wheather = await entry.WeatherTask;
+                return new {City = city, Weather = await GetWeatherForAsync(city)};
+            });
 
-                ProcessWeather(entry.City, wheather);
+            foreach (var task in tasks.OrderByCompletion())
+            {
+                var taskResult = await task;
+
+                // taskResult is an object of anonymous type with City and WeatherTask
+                ProcessWeather(taskResult.City, taskResult.Weather);
             }
         }
 
-        private void ProcessWeather(string city, Weather weather)
+        [Test]
+        public void ProcessOneUsingRx()
         {
-            Console.WriteLine("[{2}]: Processing weather for '{0}': '{1}'", city, weather,
-                DateTime.Now.ToLongTimeString());
-        } 
+            var cities = new[] { "Moscow", "Seattle", "New York" };
+            var objs = cities.Select(async city => new
+            {
+                City = city,
+                Weather = await GetWeatherForAsync(city)
+            }).Select(task => task.ToObservable()).Merge().ToEnumerable();
+
+            foreach (var obj in objs)
+            {
+                ProcessWeather(obj.City, obj.Weather);
+            }
+        }
+
+[Test]
+public async Task ProcessOneByOneNaive()
+{
+var cities = new List<string> { "Moscow", "Seattle", "New York" };
+
+var tasks =
+    from city in cities
+    select new { City = city, WeatherTask = GetWeatherForAsync(city) };
+
+foreach (var entry in tasks)
+{
+    var wheather = await entry.WeatherTask;
+
+    ProcessWeather(entry.City, wheather);
+}
+}
+
+private void ProcessWeather(string city, Weather weather)
+{
+    Console.WriteLine("[{2}]: Processing weather for '{0}': '{1}'", city, weather,
+        DateTime.Now.ToLongTimeString());
+}
     }
 }
