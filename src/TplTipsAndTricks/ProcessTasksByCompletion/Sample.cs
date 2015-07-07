@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Reactive.Threading.Tasks;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +12,68 @@ using TplTipsAndTricks.Common;
 
 namespace TplTipsAndTricks.ProcessTasksByCompletion
 {
+    public static partial class ObservableExtensions
+    {
+        public static IObservable<TResult> SelectMany<TSource, TResult>(
+            this IObservable<TSource> source,
+            Func<TSource, CancellationToken, Task<TResult>> selector,
+            int maxDegreeOfConcurrency)
+        {
+            return Observable.Create<TResult>((observer, token) =>
+            {
+                //var syncedObserver = Subject.(observer);
+                var semaphore = new SemaphoreSlim(maxDegreeOfConcurrency);
+                var subscription = source.Subscribe(
+                    async value =>
+                    {
+                        try
+                        {
+                            semaphore.Wait(token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            return;
+                        }
+                        catch (Exception ex)
+                        {
+                            observer.OnError(ex);
+                            return;
+                        }
+
+                        TResult result;
+                        try
+                        {
+                            result = await selector(value, token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException ex)
+                        {
+                            semaphore.Release();
+                            if (ex.CancellationToken != token)
+                            {
+                                observer.OnError(ex);
+                            }
+
+                            return;
+                        }
+                        catch (Exception ex)
+                        {
+                            semaphore.Release();
+                            observer.OnError(ex);
+
+                            return;
+                        }
+
+                        semaphore.Release();
+                        observer.OnNext(result);
+                    },
+                    observer.OnError,
+                    observer.OnCompleted);
+
+                return Task.FromResult(subscription);
+            }).Synchronize();
+        }
+    }
+
     [TestFixture]
     public class Sample
     {

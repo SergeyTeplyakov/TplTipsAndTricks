@@ -18,9 +18,16 @@ namespace TplTipsAndTricks.Common
         }
     }
 
+    public class WeatherUnavailableException : Exception
+    {
+        public WeatherUnavailableException(string city)
+            : base(string.Format("Fail to get the weather for '{0}'", city))
+        {
+        }
+    }
+
     internal static class WeatherService
     {
-
         public static Task<Weather> GetWeatherAsync(string city)
         {
             return Task.Run(
