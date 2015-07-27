@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Reactive.Threading.Tasks;
@@ -156,6 +157,19 @@ namespace TplTipsAndTricks.ProcessTasksByCompletion
             {
                 ProcessWeather(obj.City, obj.Weather);
             }
+        }
+
+        [Test]
+        public Task ProcessUsingRx()
+        {
+            var cities = new[] { "Moscow", "Seattle", "New York" };
+            return cities
+                .ToObservable()
+                .SelectMany(
+                    (city, cancellation) => GetWeatherForAsync(city),
+                    (city, weather) => new { City = city, Weather = weather })
+                //.ObserveOn(Scheduler.CurrentThread) //optional
+                .ForEachAsync(result => ProcessWeather(result.City, result.Weather));
         }
 
 [Test]
